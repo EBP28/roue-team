@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roue Interactive</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background: linear-gradient(to bottom, #001f3f, #0074D9);
+            color: white;
+            margin: 0;
+            overflow: hidden;
+        }
+        h1 {
+            margin: 20px 0;
+        }
+        .wheel-container {
+            position: relative;
+            margin: 50px auto;
+            width: 400px;
+            height: 400px;
+        }
+        .arrow {
+            width: 0;
+            height: 0;
+            border-left: 25px solid transparent;
+            border-right: 25px solid transparent;
+            border-bottom: 50px solid red;
+            position: absolute;
+            top: -55px;
+            left: 50%;
+            transform: translateX(-50%) rotate(180deg);
+            z-index: 10;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background: #FFD700;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #FFC107;
+        }
+        .message {
+            margin-top: 50px;
+            font-size: 48px;
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 2px 2px #000;
+            display: none;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Actionnez la Roue !</h1>
+    <div class="wheel-container">
+        <div class="arrow"></div>
+        <canvas id="wheelCanvas" width="400" height="400"></canvas>
+    </div>
+    <button id="spinButton">Actionner la roue</button>
+    <div class="message" id="message"></div>
+
+    <!-- Sons -->
+    <audio id="spinSound" src="roue_fortune_1.mp3"></audio>
+    <audio id="winSound" src="victoire.mp3"></audio>
+
+    <script>
+        const canvas = document.getElementById("wheelCanvas");
+        const ctx = canvas.getContext("2d");
+        const spinButton = document.getElementById("spinButton");
+        const message = document.getElementById("message");
+        const spinSound = document.getElementById("spinSound");
+        const winSound = document.getElementById("winSound");
+
+        // Données de la roue
+        const wheelData = [
+            "MINA", "PEGGY", "ANGELIQUE", "LUDIVINE", 
+            "JOENE", "MARY", "CELINE", "MARYLENE"
+        ];
+
+        const colors = [
+            "#FF4500", "#FFD700", "#4CAF50", "#1E90FF", 
+            "#FF69B4", "#8A2BE2", "#20B2AA", "#FF6347"
+        ];
+
+        let startAngle = 0;
+        let isSpinning = false;
+
+        // Dessiner la roue
+        function drawWheel() {
+            ctx.clearRect(0, 0, 400, 400);
+            const arc = (2 * Math.PI) / wheelData.length;
+
+            wheelData.forEach((item, i) => {
+                const angle = startAngle + i * arc;
+                ctx.beginPath();
+                ctx.fillStyle = colors[i];
+                ctx.moveTo(200, 200);
+                ctx.arc(200, 200, 200, angle, angle + arc);
+                ctx.closePath();
+                ctx.fill();
+
+                // Texte
+                ctx.save();
+                ctx.translate(200 + Math.cos(angle + arc / 2) * 140, 200 + Math.sin(angle + arc / 2) * 140);
+                ctx.rotate(angle + arc / 2 + Math.PI / 2);
+                ctx.fillStyle = "white";
+                ctx.font = "16px Arial";
+                ctx.fillText(item, -ctx.measureText(item).width / 2, 0);
+                ctx.restore();
+            });
+        }
+
+        function findMinaAngle() {
+            const arc = (2 * Math.PI) / wheelData.length;
+            const minaIndex = wheelData.indexOf("MINA");
+            return (minaIndex + 0.5) * arc; // Position centrale du segment MINA
+        }
+
+        function spinWheel() {
+            if (isSpinning) return;
+
+            isSpinning = true;
+            message.style.display = "none";
+            spinSound.play();
+
+            const totalDuration = 22000; // 22 secondes en millisecondes
+            const startTime = performance.now();
+            const totalRotation = 10 * 2 * Math.PI; // 10 tours complets
+
+            const minaAngle = findMinaAngle();
+
+            function animateSpin(time) {
+                const elapsed = time - startTime;
+                const progress = Math.min(elapsed / totalDuration, 1);
+
+                const easedProgress = progress < 0.5
+                    ? 4 * progress ** 3
+                    : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+                startAngle = easedProgress * totalRotation;
+
+                drawWheel();
+
+                if (progress < 1) {
+                    requestAnimationFrame(animateSpin);
+                } else {
+                    setTimeout(() => {
+                        // Ajuster la roue pour aligner "MINA"
+                        const adjustment = minaAngle - (startAngle % (2 * Math.PI));
+                        startAngle += adjustment;
+                        drawWheel();
+
+                        // Afficher le message
+                        message.textContent = "🎉 Bon, quelque soit le résultat, ça sera Mina. 🎉";
+                        message.style.display = "block";
+                        winSound.play();
+                        isSpinning = false;
+                    }, 1000); // Petite pause avant de centrer
+                }
+            }
+
+            requestAnimationFrame(animateSpin);
+        }
+
+        drawWheel();
+        spinButton.addEventListener("click", spinWheel);
+    </script>
+</body>
+</html>

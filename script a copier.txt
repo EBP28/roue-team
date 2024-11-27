@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roue Interactive</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background: linear-gradient(to bottom, #001f3f, #0074D9);
+            color: white;
+            margin: 0;
+            overflow: hidden;
+        }
+        h1 {
+            margin: 20px 0;
+        }
+        .wheel-container {
+            position: relative;
+            margin: 50px auto;
+            width: 400px;
+            height: 400px;
+        }
+        .arrow {
+            width: 0;
+            height: 0;
+            border-left: 25px solid transparent;
+            border-right: 25px solid transparent;
+            border-bottom: 50px solid red;
+            position: absolute;
+            top: -55px;
+            left: 50%;
+            transform: translateX(-50%) rotate(180deg);
+            z-index: 10;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background: #FFD700;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #FFC107;
+        }
+        .message {
+            margin-top: 50px;
+            font-size: 48px;
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 2px 2px #000;
+            display: none;
+            animation: pop 0.5s ease-in-out;
+        }
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background: gold;
+            animation: fall 2s linear infinite;
+        }
+        @keyframes fall {
+            0% { transform: translateY(-100vh) rotate(0deg); }
+            100% { transform: translateY(100vh) rotate(360deg); }
+        }
+        @keyframes pop {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Actionnez la Roue !</h1>
+    <div class="wheel-container">
+        <div class="arrow"></div>
+        <canvas id="wheelCanvas" width="400" height="400"></canvas>
+    </div>
+    <button id="spinButton">Actionner la roue</button>
+    <div class="message" id="message"></div>
+
+    <!-- Sons -->
+    <audio id="spinSound" src="roue_fortune_1.mp3"></audio>
+    <audio id="winSound" src="victoire.mp3"></audio>
+
+    <script>
+        const canvas = document.getElementById("wheelCanvas");
+        const ctx = canvas.getContext("2d");
+        const spinButton = document.getElementById("spinButton");
+        const message = document.getElementById("message");
+        const spinSound = document.getElementById("spinSound");
+        const winSound = document.getElementById("winSound");
+
+        // Données de la roue modifiées
+        const wheelData = [
+            "MINA", "MINA", "MINA", "MINA", 
+            "MINA", "MINA", "MINA", "MINA", 
+            "Autre GP", "Autre GP"
+        ];
+
+        // Couleurs des sections
+        const colors = [
+            "#FF4500", "#FFD700", "#4CAF50", "#1E90FF", 
+            "#FF69B4", "#8A2BE2", "#20B2AA", "#FF6347", 
+            "#000000", "#808080"
+        ];
+
+        let startAngle = 0;
+        let isSpinning = false;
+
+        // Dessiner la roue
+        function drawWheel() {
+            ctx.clearRect(0, 0, 400, 400);
+            const arc = (2 * Math.PI) / wheelData.length;
+            
+            wheelData.forEach((item, i) => {
+                const angle = startAngle + i * arc;
+                ctx.beginPath();
+                ctx.fillStyle = colors[i];
+                ctx.moveTo(200, 200);
+                ctx.arc(200, 200, 200, angle, angle + arc);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Texte
+                ctx.save();
+                ctx.translate(200 + Math.cos(angle + arc / 2) * 140, 200 + Math.sin(angle + arc / 2) * 140);
+                ctx.rotate(angle + arc / 2 + Math.PI / 2);
+                ctx.fillStyle = "white";
+                ctx.font = "16px Arial";
+                ctx.fillText(item, -ctx.measureText(item).width / 2, 0);
+                ctx.restore();
+            });
+        }
+
+        // Fonction de rotation de la roue
+        function spinWheel() {
+            if (isSpinning) return;
+
+            isSpinning = true;
+            message.style.display = "none";
+            spinSound.play();
+
+            const totalDuration = 21000; // 21 secondes en millisecondes
+            const startTime = performance.now();
+            
+            // Paramètres de l'animation
+            const initialVelocity = 0.3;
+            const finalPosition = Math.random() * (2 * Math.PI); // Position finale aléatoire précise
+            let currentVelocity = initialVelocity;
+
+            function animateSpin(time) {
+                const elapsed = time - startTime;
+                const progress = elapsed / totalDuration;
+
+                if (elapsed < totalDuration) {
+                    // Fonction d'ease-out cubique pour un ralentissement plus naturel
+                    const easedProgress = 1 - Math.pow(1 - progress, 3);
+                    
+                    // Interpolation entre la vitesse initiale et zéro
+                    currentVelocity = initialVelocity * (1 - easedProgress);
+                    
+                    // Rotation continue
+                    startAngle += currentVelocity;
+                    
+                    drawWheel();
+                    requestAnimationFrame(animateSpin);
+                } else {
+                    // Arrêt précis sur une position
+                    startAngle = finalPosition;
+                    
+                    // Déterminer précisément le gagnant
+                    const arc = (2 * Math.PI) / wheelData.length;
+                    const normalizedAngle = ((2 * Math.PI - (startAngle % (2 * Math.PI))) % (2 * Math.PI));
+                    const index = Math.floor(normalizedAngle / arc);
+                    
+                    const winner = wheelData[index];
+                    
+                    message.textContent = `🎉 Résultat : ${winner} 🎉`;
+                    message.style.display = "block";
+                    winSound.play();
+                    createConfetti();
+                    isSpinning = false;
+                }
+            }
+
+            requestAnimationFrame(animateSpin);
+        }
+
+        // Création des paillettes (confetti)
+        function createConfetti() {
+            for (let i = 0; i < 100; i++) {
+                const confetti = document.createElement("div");
+                confetti.classList.add("confetti");
+                confetti.style.left = Math.random() * window.innerWidth + "px";
+                confetti.style.backgroundColor = getRandomColor();
+                confetti.style.animationDuration = Math.random() * 2 + 3 + "s";
+                document.body.appendChild(confetti);
+                setTimeout(() => confetti.remove(), 5000);
+            }
+        }
+
+        function getRandomColor() {
+            const colors = ["#FFC107", "#FF5722", "#8BC34A", "#03A9F4", "#E91E63", "#9C27B0"];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+
+        // Initialisation de la roue
+        drawWheel();
+
+        // Événement de clic sur le bouton
+        spinButton.addEventListener("click", spinWheel);
+    </script>
+</body>
+</html>
